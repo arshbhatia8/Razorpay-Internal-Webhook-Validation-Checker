@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webhook Validation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: auto;
+        }
+        textarea, input, button {
+            margin: 10px 0;
+            padding: 10px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        #result, #generatedSignature {
+            font-weight: bold;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Webhook Validation</h1>
+        <form id="webhookForm">
+            <label for="webhookBody">Webhook Body (JSON):</label>
+            <textarea id="webhookBody" rows="10" placeholder='{"key": "value"}'></textarea>
+            
+            <label for="webhookSignature">Webhook Signature:</label>
+            <input type="text" id="webhookSignature" placeholder="Enter signature">
+
+            <label for="webhookSecret">Webhook Secret:</label>
+            <input type="text" id="webhookSecret" placeholder="Enter secret">
+
+            <button type="button" onclick="validateSignature()">Validate Signature</button>
+        </form>
+        <div id="generatedSignature"></div>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        // Function to validate the webhook signature
+async function validateSignature() {
+    // Get input values
+    const webhookBody = document.getElementById('webhookBody').value;
+    const receivedSignature = document.getElementById('webhookSignature').value;
+    const webhookSecret = document.getElementById('webhookSecret').value;
+
+    try {
+        // Convert secret and body to bytes
+        const encoder = new TextEncoder();
+        const keyBytes = encoder.encode(webhookSecret);
+        const messageBytes = encoder.encode(webhookBody);
+
+        // Import the key for HMAC SHA-256
+        const key = await crypto.subtle.importKey(
+            'raw', 
+            keyBytes, 
+            { name: 'HMAC', hash: 'SHA-256' }, 
+            false, 
+            ['sign']
+        );
+
+        // Generate HMAC
+        const signatureBytes = await crypto.subtle.sign('HMAC', key, messageBytes);
+
+        // Convert signature to hexadecimal
+        const expectedSignature = arrayBufferToHex(signatureBytes);
+
+        // Display the generated signature
+        document.getElementById('generatedSignature').innerText = `Generated Signature: ${expectedSignature}`;
+
+        // Compare signatures and display the result
+        if (expectedSignature === receivedSignature) {
+            document.getElementById('result').innerText = 'Valid Signature';
+        } else {
+            document.getElementById('result').innerText = 'Invalid Signature';
+        }
+    } catch (error) {
+        console.error('Error validating signature:', error);
+        document.getElementById('result').innerText = 'Error validating signature';
+    }
+}
+
+// Helper function to convert ArrayBuffer to hexadecimal string
+function arrayBufferToHex(buffer) {
+    const byteArray = new Uint8Array(buffer);
+    let hexString = '';
+    byteArray.forEach(byte => {
+        hexString += byte.toString(16).padStart(2, '0');
+    });
+    return hexString;
+}
+
+    </script>
+</body>
+</html>
